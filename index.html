@@ -34,6 +34,7 @@
       --bot-bead-hi: #9a9a9a;
       --rail: 18px;
       --bar-h: 14px;
+      --bar-clearance: 24px;
       --bead-w: clamp(28px, 9vw, 42px);
       --bead-h: clamp(18px, 5.4vw, 26px);
       --gap: 2px;
@@ -252,11 +253,9 @@
       display: grid;
       grid-template-rows:
         var(--rail)
-        calc(var(--unit) * 3 + 8px)
+        calc(var(--unit) + var(--unit) + var(--unit) + var(--unit) + var(--bar-clearance))
         var(--bar-h)
-        calc(var(--unit) * 2 + 8px)
-        var(--bar-h)
-        calc(var(--unit) * 5 + 8px)
+        calc(var(--unit) + var(--unit) + var(--unit) + var(--unit) + var(--unit) + var(--bar-clearance))
         var(--rail);
       grid-template-columns: var(--rail) repeat(5, 1fr) var(--rail);
       background: radial-gradient(ellipse at 50% 40%, #f4efe4 0%, #d8d2c4 100%);
@@ -269,7 +268,7 @@
       box-shadow: inset 0 2px 0 rgba(255,255,255,0.18), inset 0 -3px 4px rgba(0,0,0,0.45);
     }
     .h-rail.top { grid-column: 1 / -1; grid-row: 1; }
-    .h-rail.bot { grid-column: 1 / -1; grid-row: 7; }
+    .h-rail.bot { grid-column: 1 / -1; grid-row: 5; }
     .bar {
       grid-column: 1 / -1;
       z-index: 6;
@@ -278,8 +277,7 @@
         linear-gradient(180deg, #5a5a5a, var(--bar) 40%, #111);
       box-shadow: inset 0 2px 0 rgba(255,255,255,0.18), inset 0 -2px 3px rgba(0,0,0,0.5);
     }
-    .bar.upper { grid-row: 3; }
-    .bar.lower { grid-row: 5; }
+    .bar.reckoning { grid-row: 3; }
     .v-rail {
       background:
         repeating-linear-gradient(180deg, rgba(0,0,0,0.16) 0 1px, transparent 1px 8px),
@@ -339,9 +337,14 @@
       flex-direction: column;
       align-items: center;
     }
-    .col.tens { grid-row: 2; height: calc(var(--unit) * 3 + 8px); }
-    .col.five { grid-row: 4; height: calc(var(--unit) * 2 + 8px); }
-    .col.ones { grid-row: 6; height: calc(var(--unit) * 5 + 8px); }
+    .col.sixes {
+      grid-row: 2;
+      height: calc(var(--unit) + var(--unit) + var(--unit) + var(--unit) + var(--bar-clearance));
+    }
+    .col.ones {
+      grid-row: 4;
+      height: calc(var(--unit) + var(--unit) + var(--unit) + var(--unit) + var(--unit) + var(--bar-clearance));
+    }
     .col.c0 { grid-column: 2; }
     .col.c1 { grid-column: 3; }
     .col.c2 { grid-column: 4; }
@@ -377,18 +380,8 @@
       gap: var(--gap);
       flex: 0 0 auto;
     }
-    .col.tens .group-off { margin-top: 0; }
-    .col.tens .group-on { margin-top: auto; }
-    .col.five .stack {
-      display: grid;
-      grid-template-rows: 1fr 1fr;
-      justify-items: center;
-      align-items: center;
-    }
-    .col.five .group-on,
-    .col.five .group-off { display: contents; }
-    .col.five .bead { grid-row: 1; }
-    .col.five.on .bead { grid-row: 2; }
+    .col.sixes .group-off { margin-top: 0; }
+    .col.sixes .group-on { margin-top: auto; }
     .col.ones .group-off { margin-top: auto; }
     .col.ones .group-on { margin-top: 0; }
 
@@ -481,8 +474,7 @@
     <div class="plate">
       <div class="abacus" id="abacus">
         <div class="h-rail top"></div>
-        <div class="bar upper" title="Upper reckoning bar"></div>
-        <div class="bar lower" title="Lower reckoning bar"></div>
+        <div class="bar reckoning" title="Reckoning bar — beads touching it are counted"></div>
         <div class="h-rail bot"></div>
         <div class="v-rail left"></div>
         <div class="v-rail right"></div>
@@ -496,8 +488,8 @@
   </div>
 
   <script>
-    const TENS_N = 2, FIVE_N = 1, ONES_N = 4;
-    const TENS_VAL = 10, FIVE_VAL = 5, ONES_VAL = 1;
+    const SIXES_N = 4, ONES_N = 5;
+    const SIXES_VAL = 6, ONES_VAL = 1;
     const BASE = 30, COLS = 5;
     const PLACES = Array.from({ length: COLS }, (_, i) => BASE ** (COLS - 1 - i));
     const CARD_IMG = {
@@ -571,8 +563,7 @@
 
     const columns = PLACES.map((place) => ({
       place,
-      tens: 0,
-      five: 0,
+      sixes: 0,
       ones: 0
     }));
 
@@ -581,9 +572,9 @@
     function beadButton(deck, k, colIndex) {
       const el = document.createElement("button");
       el.type = "button";
-      el.className = "bead " + (deck === "tens" ? "top" : deck === "five" ? "mid" : "bot");
+      el.className = "bead " + (deck === "sixes" ? "top" : "bot");
       el.dataset.k = String(k);
-      const worth = deck === "tens" ? TENS_VAL : deck === "five" ? FIVE_VAL : ONES_VAL;
+      const worth = deck === "sixes" ? SIXES_VAL : ONES_VAL;
       el.setAttribute(
         "aria-label",
         `${deck} bead ${k} on rod ${colIndex + 1}, worth ${worth}`
@@ -598,17 +589,11 @@
       columns.forEach((col, i) => {
         const power = COLS - 1 - i;
 
-        const tens = document.createElement("div");
-        tens.className = `col tens c${i}`;
-        tens.innerHTML = `<div class="rod"></div><div class="stack"><div class="group-off"></div><div class="group-on"></div></div>`;
-        const tOff = tens.querySelector(".group-off");
-        for (let k = 1; k <= TENS_N; k++) tOff.appendChild(beadButton("tens", k, i));
-
-        const five = document.createElement("div");
-        five.className = `col five c${i}`;
-        five.innerHTML = `<div class="rod"></div><div class="stack"><div class="group-on"></div><div class="group-off"></div></div>`;
-        const fOff = five.querySelector(".group-off");
-        for (let k = 1; k <= FIVE_N; k++) fOff.appendChild(beadButton("five", k, i));
+        const sixes = document.createElement("div");
+        sixes.className = `col sixes c${i}`;
+        sixes.innerHTML = `<div class="rod"></div><div class="stack"><div class="group-off"></div><div class="group-on"></div></div>`;
+        const sOff = sixes.querySelector(".group-off");
+        for (let k = 1; k <= SIXES_N; k++) sOff.appendChild(beadButton("sixes", k, i));
 
         const ones = document.createElement("div");
         ones.className = `col ones c${i}`;
@@ -616,11 +601,9 @@
         const oOff = ones.querySelector(".group-off");
         for (let k = 1; k <= ONES_N; k++) oOff.appendChild(beadButton("ones", k, i));
 
-        abacus.appendChild(tens);
-        abacus.appendChild(five);
+        abacus.appendChild(sixes);
         abacus.appendChild(ones);
-        col.tensEl = tens;
-        col.fiveEl = five;
+        col.sixesEl = sixes;
         col.onesEl = ones;
 
         const cell = document.createElement("span");
@@ -632,17 +615,12 @@
 
     function tap(i, deck, k) {
       const col = columns[i];
-      if (deck === "tens") {
-        // Same heaven logic as Living Abacus:
-        // k=1 is the top-rail bead, k=TENS_N is nearest the bar.
-        // Counted beads are always the lowest `tens` beads.
-        const down = k > TENS_N - col.tens;
-        col.tens = down ? TENS_N - k : TENS_N - k + 1;
-      } else if (deck === "five") {
-        // Same earth logic: tap a counted bead to drop it (and those past it);
-        // tap an unused bead to raise it (and those before it).
-        col.five = col.five >= k ? k - 1 : k;
+      if (deck === "sixes") {
+        // Upper beads count when moved down toward the reckoning bar.
+        const down = k > SIXES_N - col.sixes;
+        col.sixes = down ? SIXES_N - k : SIXES_N - k + 1;
       } else {
+        // Lower beads count when moved up toward the reckoning bar.
         col.ones = col.ones >= k ? k - 1 : k;
       }
       render();
@@ -663,7 +641,7 @@
     }
 
     function digitOf(col) {
-      return col.tens * TENS_VAL + col.five * FIVE_VAL + col.ones * ONES_VAL;
+      return col.sixes * SIXES_VAL + col.ones * ONES_VAL;
     }
 
     function decimalValue() {
@@ -768,18 +746,15 @@
       columns.forEach((c) => {
         const d = Math.floor(rest / c.place);
         rest -= d * c.place;
-        c.tens = Math.min(TENS_N, Math.floor(d / TENS_VAL));
-        let r = d - c.tens * TENS_VAL;
-        c.five = Math.min(FIVE_N, Math.floor(r / FIVE_VAL));
-        c.ones = Math.min(ONES_N, r - c.five * FIVE_VAL);
+        c.sixes = Math.min(SIXES_N, Math.floor(d / SIXES_VAL));
+        c.ones = Math.min(ONES_N, d % SIXES_VAL);
       });
       render();
     }
 
     function clearAll() {
       columns.forEach((c) => {
-        c.tens = 0;
-        c.five = 0;
+        c.sixes = 0;
         c.ones = 0;
       });
       typed = "";
@@ -790,9 +765,7 @@
 
     function render() {
       columns.forEach((col) => {
-        arrange(col.tensEl, col.tens, true);
-        arrange(col.fiveEl, col.five, false);
-        col.fiveEl.classList.toggle("on", col.five > 0);
+        arrange(col.sixesEl, col.sixes, true);
         arrange(col.onesEl, col.ones, false);
       });
 
