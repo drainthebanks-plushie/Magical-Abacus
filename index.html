@@ -962,6 +962,9 @@
             multiplyDigits = 2;
             columns[1].sixes = 0;
             columns[1].ones = 0;
+            if (Number.isFinite(bracketValue)) {
+              bracketValue %= BASE ** 3;
+            }
             render();
             return;
           }
