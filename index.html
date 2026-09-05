@@ -174,11 +174,15 @@
       grid-template-rows: repeat(6, auto);
       gap: 6px;
     }
-    .keypad-board .key.op-plus  { grid-column: 6; grid-row: 1 / span 2; }
-    .keypad-board .key.op-minus { grid-column: 6; grid-row: 3 / span 2; }
+    .keypad-board .key.op-plus  { grid-column: 6; grid-row: 2 / span 2; }
+    .keypad-board .key.op-minus { grid-column: 6; grid-row: 4 / span 2; }
+    .keypad-board .key.op-multiply {
+      grid-column: 6;
+      grid-row: 1;
+    }
     .keypad-board .key.op-zero  {
       grid-column: 6;
-      grid-row: 5 / span 2;
+      grid-row: 6;
       font-weight: 400;
       font-size: 1.05rem;
       letter-spacing: 0.06em;
@@ -210,6 +214,10 @@
       font-size: 1.25rem;
       border: 1px solid #6a6458;
       box-shadow: 0 2px 0 #6a6458, inset 0 1px 0 #fffaf0;
+    }
+    .key.op-multiply,
+    .key.op-zero {
+      min-height: 40px;
     }
     .key.card {
       position: relative;
@@ -798,6 +806,8 @@
       });
       typed = "";
       pendingOp = "";
+      bracketValue = null;
+      multiplyDigits = 1;
       syncField();
       hideKeypad();
       render();
@@ -830,19 +840,35 @@
     const keys = document.getElementById("keys");
     let typed = "";
     let pendingOp = "";
+    let bracketValue = null;
+    let multiplyDigits = 1;
 
     function selectedDecimal() {
       return parseBase30Num(typed);
     }
 
     function syncField() {
-      const beadValue = decimalValue().toLocaleString("en-US");
-      let display = beadValue;
+      const beadNumber = decimalValue();
+      let display = beadNumber.toLocaleString("en-US");
       if (field.classList.contains("open") && pendingOp) {
-        const selection = selectedDecimal();
-        const symbol = pendingOp === "-" ? "−" : "+";
-        display += ` ${symbol}`;
-        if (Number.isFinite(selection)) display += ` ${selection.toLocaleString("en-US")}`;
+        if (pendingOp === "*") {
+          const multiplicand = Number.isFinite(bracketValue)
+            ? `(0 + ${bracketValue.toLocaleString("en-US")})`
+            : display;
+          const tokens = tokenize(typed) || [];
+          const slots = Array.from({ length: multiplyDigits }, (_, index) => {
+            const card = TAROT_BY_SLUG[tokens[index]];
+            return card ? card.v : "_";
+          }).join(" ");
+          display = `${multiplicand} ×${multiplyDigits === 2 ? ` ${slots}` : ""}`;
+        } else {
+          const selection = selectedDecimal();
+          const symbol = pendingOp === "-" ? "−" : "+";
+          display += ` ${symbol}`;
+          if (Number.isFinite(selection)) {
+            display += ` ${selection.toLocaleString("en-US")}`;
+          }
+        }
       }
       field.textContent = display;
       field.setAttribute("aria-label", `Open tarot keypad. ${display}`);
@@ -851,6 +877,8 @@
     function showKeypad() {
       typed = "";
       pendingOp = decimalValue() === 0 ? "+" : "";
+      bracketValue = null;
+      multiplyDigits = 1;
       keypad.classList.add("show");
       keypad.setAttribute("aria-hidden", "false");
       field.classList.add("open");
@@ -860,6 +888,8 @@
     function hideKeypad() {
       typed = "";
       pendingOp = "";
+      bracketValue = null;
+      multiplyDigits = 1;
       keypad.classList.remove("show");
       keypad.setAttribute("aria-hidden", "true");
       field.classList.remove("open");
@@ -870,13 +900,14 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "key" + (extraClass ? " " + extraClass : "");
-      btn.dataset.k = k === "−" ? "-" : k;
+      btn.dataset.k = k === "−" ? "-" : k === "×" ? "*" : k;
       btn.textContent = k;
       return btn;
     }
 
     keys.appendChild(makeKey("+", "op op-plus"));
     keys.appendChild(makeKey("−", "op op-minus"));
+    keys.appendChild(makeKey("×", "op op-multiply"));
     const setKey = makeKey("Set", "op op-zero");
     delete setKey.dataset.k;
     setKey.dataset.act = "set";
@@ -917,10 +948,53 @@
         return;
       }
       if (btn.dataset.k) {
-        const k = btn.dataset.k === "-" ? "-" : btn.dataset.k;
+        const k = btn.dataset.k;
         if (k === "+" || k === "-") {
           pendingOp = k;
+          bracketValue = null;
+          multiplyDigits = 1;
           syncField();
+          return;
+        }
+        if (k === "*") {
+          if (pendingOp === "*") {
+            typed = "";
+            multiplyDigits = 2;
+            columns[1].sixes = 0;
+            columns[1].ones = 0;
+            render();
+            return;
+          }
+          const selection = selectedDecimal();
+          if (
+            decimalValue() === 0 &&
+            pendingOp === "+" &&
+            Number.isFinite(selection) &&
+            selection < BASE ** 4
+          ) {
+            bracketValue = selection;
+            typed = "";
+            pendingOp = "*";
+            multiplyDigits = 1;
+            syncField();
+            return;
+          }
+          bracketValue = null;
+          typed = "";
+          pendingOp = "*";
+          multiplyDigits = 1;
+          columns[0].sixes = 0;
+          columns[0].ones = 0;
+          render();
+          return;
+        }
+        if (pendingOp === "*") {
+          const tokens = tokenize(typed) || [];
+          if (tokens.length >= multiplyDigits) return;
+          tokens.push(k);
+          typed = tokens.join(" ");
+          syncField();
+          if (tokens.length === multiplyDigits) applySet();
           return;
         }
         const tokens = tokenize(typed) || [];
@@ -931,14 +1005,25 @@
     });
 
     function applySet() {
-      const selection = selectedDecimal();
+      let selection = selectedDecimal();
+      if (pendingOp === "*") {
+        const tokens = tokenize(typed);
+        if (!tokens || tokens.length !== multiplyDigits) return;
+      }
       if (!Number.isFinite(selection)) return;
       const beadValue = decimalValue();
-      const result = pendingOp === "+"
+      const multiplicand = pendingOp === "*" && Number.isFinite(bracketValue)
+        ? bracketValue
+        : beadValue;
+      let result = pendingOp === "+"
         ? beadValue + selection
         : pendingOp === "-"
           ? beadValue - selection
-          : selection;
+          : pendingOp === "*"
+            ? multiplicand * selection
+            : selection;
+      const max = BASE ** COLS - 1;
+      if (pendingOp === "+" && result > max) result -= max;
       setNumber(Math.abs(result));
       hideKeypad();
     }
