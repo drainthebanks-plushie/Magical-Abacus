@@ -260,13 +260,17 @@
       display: grid;
       width: 100%;
     }
-    .spread-full {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 4px;
-    }
-    .spread-low {
+    .spread-3 {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
+    }
+    .spread-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .spread-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 4px;
     }
     .spread-card {
       display: block;
@@ -986,9 +990,13 @@
         const src = cardImageSrc(v);
         return `<span class="spread-card"><img src="${src}" alt="${card ? card.name : slug} = ${v}"></span>`;
       };
-      const fullNumber = slugs.map(renderCard).join("");
-      const lowPlaces = slugs.slice(2).map(renderCard).join("");
-      spread.innerHTML = `<div class="spread-row spread-full">${fullNumber}</div><div class="spread-row spread-low">${lowPlaces}</div>`;
+      const cardCount = slugs[0] !== digitSlug(0)
+        ? 5
+        : slugs[1] !== digitSlug(0)
+          ? 4
+          : 3;
+      const visibleCards = slugs.slice(COLS - cardCount).map(renderCard).join("");
+      spread.innerHTML = `<div class="spread-row spread-${cardCount}">${visibleCards}</div>`;
       syncField();
     }
 
