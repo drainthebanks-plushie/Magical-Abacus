@@ -181,6 +181,13 @@
       opacity: 0.7;
     }
     .keypad-actions { display: flex; gap: 6px; }
+    .keypad-actions .ctrl {
+      box-sizing: border-box;
+      width: 3.05rem;
+      min-height: 40px;
+      padding: 2px 3px;
+      border-radius: 10px;
+    }
     .keypad-board {
       display: grid;
       grid-template-columns: repeat(5, 1fr) 3.05rem;
@@ -745,8 +752,7 @@
     <div class="keypad-head">
       <span>TAROT KEYS</span>
       <div class="keypad-actions">
-        <button class="ctrl" type="button" data-act="back">⌫</button>
-        <button class="ctrl" type="button" data-act="hide">Hide</button>
+        <button class="ctrl" type="button" data-act="back">DEL</button>
         <button class="ctrl" type="button" id="clearBtn">AC</button>
       </div>
     </div>
@@ -1069,16 +1075,16 @@
     }
 
     function clearAll() {
+      const keypadOpen = keypad.classList.contains("show");
       columns.forEach((c) => {
         c.sixes = 0;
         c.ones = 0;
       });
       typed = "";
-      pendingOp = "";
+      pendingOp = keypadOpen ? "+" : "";
       bracketValue = null;
       multiplyDigits = 2;
       syncField();
-      hideKeypad();
       render();
     }
 
@@ -1226,10 +1232,6 @@
         tokens.pop();
         typed = tokens.join(" ").replace(/\s+([+-])\s+/g, " $1 ").replace(/\s+/g, " ").trim();
         syncField();
-        return;
-      }
-      if (btn.dataset.act === "hide") {
-        hideKeypad();
         return;
       }
       if (btn.dataset.act === "set") {
